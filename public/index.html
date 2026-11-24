@@ -101,18 +101,27 @@ async function om(u){const h=MC.get(u);if(h&&Date.now()-h.t<6e5)return h.d;const
 function tick(){document.querySelectorAll("time[data-tz]").forEach(e=>e.textContent=clock(e.dataset.tz))}
 function search(){const q=norm($("#q").value.trim()),cc=$("#cc").value;res=C.filter(c=>(!cc||c.cc==cc)&&(!q||c.k.indexOf(q)==0||c.k.indexOf("|"+q)>=0));shown=0;$("#list").innerHTML="";more();if(!res.length)$("#list").innerHTML='<li class="muted">Tidak ada kota yang cocok.</li>'}
 function more(){const rows=res.slice(shown,shown+40);shown+=rows.length;$("#list").insertAdjacentHTML("beforeend",rows.map(r=>`<li tabindex="0" data-id="${r.id}"><b>${esc(r.n)}</b><span>${esc(country(r.cc))} · ${pop(r.p)} penduduk</span><time data-tz="${esc(r.tz)}"></time></li>`).join(""));$("#more").hidden=shown>=res.length;tick()}
-const TC=new Map();let seq=0,blocked=0,rt;
+const TC=new Map();let seq=0,blocked=0,kind="net",rt;
+try{JSON.parse(localStorage.tc||"[]").forEach(x=>{if(Date.now()-x[2]<6e5)TC.set(x[0],{t:x[1],at:x[2]})})}catch{}
+function saveTC(){try{const a=[];TC.forEach((v,k)=>{if(Date.now()-v.at<6e5)a.push([k,v.t,v.at])});localStorage.tc=JSON.stringify(a.slice(-600))}catch{}}
+const fmtS=s=>s>=90?Math.ceil(s/60)+" menit":s+" detik";
+function noteTick(){const n=$("#note");if(n.hidden)return;const s=Math.ceil((blocked-Date.now())/1000);
+n.textContent=s<=0?"Mencoba menghubungi Open-Meteo…":(kind=="limit"?"Batas gratis Open-Meteo tercapai. ":kind=="net"?"Tidak bisa terhubung ke Open-Meteo. ":"Open-Meteo sedang bermasalah. ")+"Mencoba lagi dalam "+fmtS(s)+"."}
 function draw(rows){layer.clearLayers();rows.forEach(r=>{const h=TC.get(r.id),t=h?h.t:null;
 L.circleMarker([r.la,r.lo],{radius:6+Math.max(0,Math.min(6,Math.log10(r.p+1)-3)),color:"#fff",weight:1.5,fillColor:col(t),fillOpacity:.92}).addTo(layer).bindTooltip(`${r.n} · ${T(t)}`).on("click",()=>openCity(r.id))})}
-function retry(){$("#note").hidden=false;clearTimeout(rt);rt=setTimeout(()=>refreshMap().catch(()=>{}),62000)}
-async function refreshMap(){const tk=++seq,b=map.getBounds(),lim=map.getZoom()<4?60:80,w=Math.max(-180,b.getWest()),e=Math.min(180,b.getEast()),s=Math.max(-90,b.getSouth()),n=Math.min(90,b.getNorth()),rows=[];
+function retry(){$("#note").hidden=false;clearTimeout(rt);rt=setTimeout(()=>refreshMap().catch(()=>{}),Math.max(1000,blocked-Date.now()+500));noteTick()}
+async function refreshMap(){const tk=++seq,b=map.getBounds(),lim=map.getZoom()<4?50:70,w=Math.max(-180,b.getWest()),e=Math.min(180,b.getEast()),s=Math.max(-90,b.getSouth()),n=Math.min(90,b.getNorth()),rows=[];
 for(let i=0;i<C.length&&rows.length<lim;i++){const c=C[i];if(c.la>=s&&c.la<=n&&c.lo>=w&&c.lo<=e)rows.push(c)}
 draw(rows);const need=rows.filter(r=>{const h=TC.get(r.id);return !h||Date.now()-h.at>6e5});
 if(!need.length)return;if(Date.now()<blocked){retry();return}
 try{const r=await fetch("https://api.open-meteo.com/v1/forecast?current=temperature_2m&timezone=auto&latitude="+need.map(x=>x.la).join(",")+"&longitude="+need.map(x=>x.lo).join(","));
-if(!r.ok)throw new Error(r.status);const d=await r.json(),a=Array.isArray(d)?d:[d];
-need.forEach((x,i)=>{if(a[i]&&a[i].current)TC.set(x.id,{t:a[i].current.temperature_2m,at:Date.now()})});$("#note").hidden=true;if(tk==seq)draw(rows)}
-catch(err){blocked=Date.now()+60000;retry()}}
+if(!r.ok){const j=await r.json().catch(()=>({}));throw{st:r.status,why:j.reason||""}}
+const d=await r.json(),a=Array.isArray(d)?d:[d];
+need.forEach((x,i)=>{if(a[i]&&a[i].current)TC.set(x.id,{t:a[i].current.temperature_2m,at:Date.now()})});saveTC();blocked=0;$("#note").hidden=true;if(tk==seq)draw(rows)}
+catch(err){const st=err&&err.st||0,why=err&&err.why||"";
+if(st==429){kind="limit";blocked=Date.now()+(/daily/i.test(why)?1800:/hourly/i.test(why)?300:65)*1000}
+else{kind=st?"srv":"net";blocked=Date.now()+30000}
+retry()}}
 async function openCity(id){sel=id;const c=C.find(x=>x.id==id),d=$("#detail");d.hidden=false;map.flyTo([c.la,c.lo],Math.max(map.getZoom(),6));render(c,null,null,true);
 const p="latitude="+c.la+"&longitude="+c.lo+"&timezone=auto",r=await Promise.allSettled([om("https://api.open-meteo.com/v1/forecast?"+p+"&forecast_days=7&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,uv_index_max"),om("https://air-quality-api.open-meteo.com/v1/air-quality?"+p+"&current=us_aqi")]);
 if(sel==id)render(c,r[0].value||null,r[1].value?r[1].value.current:null,false)}
@@ -146,7 +155,7 @@ const cnt={};C.forEach(c=>cnt[c.cc]=(cnt[c.cc]||0)+1);const a=Object.keys(cnt).s
 $("#cc").insertAdjacentHTML("beforeend",a.map(k=>`<option value="${k}">${esc(country(k))} (${cnt[k]})</option>`).join(""));
 $("#cnt").textContent=`${C.length.toLocaleString("id-ID")} kota di ${a.length} negara · jam lokal, musim, cuaca, dan kualitas udara`;
 search();refreshMap().catch(()=>{})}).catch(()=>{$("#cnt").textContent="Data kota gagal dimuat. Pastikan data/cities.json ada."});
-setInterval(tick,1000);setInterval(()=>refreshMap().catch(()=>{}),6e5);
+setInterval(tick,1000);setInterval(noteTick,1000);setInterval(()=>refreshMap().catch(()=>{}),6e5);
 </script>
 </body>
 </html>
