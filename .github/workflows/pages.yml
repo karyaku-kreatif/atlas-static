@@ -11,21 +11,27 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python build_data.py cities5000
+      - run: ls -la public public/data
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
-      - id: deploy
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
         uses: actions/deploy-pages@v4
