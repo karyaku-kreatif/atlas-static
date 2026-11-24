@@ -22,3 +22,5 @@ Buka http://localhost:8000
 - Batas gratis Open-Meteo dihitung per alamat IP pengunjung dan hanya untuk penggunaan non-komersial.
 - Pakai `cities15000` untuk data lebih ringan (sekitar 25 ribu kota).
 - Atribusi GeoNames dan Open-Meteo sudah ada di footer; jangan dihapus.
+
+- Peta memakai tile OpenStreetMap tanpa API key (mode gelap lewat filter CSS). Kebijakan OSM membatasi pemakaian berat; kalau trafik situs besar, ganti URL tile di fungsi `tiles()` dengan penyedia yang kamu langgani.
