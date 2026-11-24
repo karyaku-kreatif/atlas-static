@@ -49,6 +49,7 @@ h3{margin:16px 0 6px;font-size:.95rem}
 .fc{display:grid;grid-template-columns:34px 26px 1fr 84px;gap:8px;align-items:center;padding:4px 0;font-size:.85rem}
 .rg{position:relative;height:6px;border-radius:3px;background:var(--bd)}
 .rg i{position:absolute;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,var(--ac),var(--am))}
+[data-theme=dark] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
 .leaflet-container{font-family:inherit}
 @media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:44dvh 1fr}#wrap{order:-1}aside{border-right:0}#detail{left:8px;right:8px;top:8px;width:auto;max-height:80%}}
 </style>
@@ -67,7 +68,7 @@ h3{margin:16px 0 6px;font-size:.95rem}
 </div>
 <ul id="list"></ul>
 <button id="more" hidden>Muat lebih banyak</button>
-<div class="ft">Kota: GeoNames (CC BY 4.0) · Cuaca dan kualitas udara: Open-Meteo · Peta: OpenStreetMap, CARTO</div>
+<div class="ft">Kota: GeoNames (CC BY 4.0) · Cuaca dan kualitas udara: Open-Meteo · Peta: OpenStreetMap</div>
 </aside>
 <div id="wrap"><div id="map"></div><section id="detail" hidden aria-live="polite"></section></div>
 </div>
@@ -122,7 +123,7 @@ $("#q").oninput=()=>{clearTimeout(tm);tm=setTimeout(search,200)};
 $("#cc").onchange=search;$("#more").onclick=more;
 const bu=()=>$("#bu").textContent="Satuan: °"+unit;
 $("#bu").onclick=()=>{unit=unit=="C"?"F":"C";localStorage.u=unit;bu();refreshMap();if(last)render(...last,false)};
-function tiles(){const d=document.documentElement.dataset.theme=="dark";if(map._t)map.removeLayer(map._t);map._t=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${d?"dark_all":"light_all"}/{z}/{x}/{y}{r}.png`,{maxZoom:18,attribution:"© OpenStreetMap, © CARTO"}).addTo(map)}
+function tiles(){if(!map._t)map._t=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map)}
 $("#bt").onclick=()=>{const d=document.documentElement.dataset.theme=="dark"?"light":"dark";document.documentElement.dataset.theme=d;localStorage.th=d;tiles()};
 document.documentElement.dataset.theme=localStorage.th||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
 map=L.map("map",{worldCopyJump:true,minZoom:2}).setView([20,10],2);layer=L.layerGroup().addTo(map);tiles();bu();
