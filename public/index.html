@@ -12,14 +12,20 @@
 [data-theme=dark]{--bg:#0a1219;--pn:#111c26;--tx:#e6eef3;--mu:#8ba0b1;--ac:#37b6c6;--am:#f2a33a;--bd:#223240;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.45 Manrope,system-ui,sans-serif;background:var(--bg);color:var(--tx)}
-.app{display:grid;grid-template-columns:380px 1fr;height:100dvh}
-aside{display:flex;flex-direction:column;background:var(--pn);border-right:1px solid var(--bd);min-height:0}
+.app{display:grid;grid-template-columns:380px 1fr;height:100dvh;transition:grid-template-columns .25s}
+.app.closed{grid-template-columns:0 1fr}
+.app.closed aside{visibility:hidden}
+aside{display:flex;flex-direction:column;background:var(--pn);border-right:1px solid var(--bd);min-height:0;min-width:0;overflow:hidden}
 .hd{padding:18px 18px 12px}
-h1{margin:0;font-size:1.35rem;font-weight:800;letter-spacing:-.02em}
-.sub{margin:2px 0 12px;color:var(--mu);font-size:.85rem}
-.ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+h1{margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em}
+.sub{margin:6px 0 4px;color:var(--mu);font-size:.85rem}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tb{display:flex;gap:6px;flex:none}
+.tb button{padding:6px 10px;min-width:38px}
+.hd input,.hd select{display:block;width:100%;margin-top:8px;text-overflow:ellipsis}
+#open{position:absolute;z-index:1000;top:14px;left:14px;display:none;background:var(--pn);box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.app.closed #open{display:block}
 input,select,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:9px 12px}
-input{grid-column:1/3}
 button{cursor:pointer}
 button:hover,select:hover{border-color:var(--ac)}
 button:focus-visible,input:focus-visible,select:focus-visible,li:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
@@ -51,26 +57,23 @@ h3{margin:16px 0 6px;font-size:.95rem}
 .rg i{position:absolute;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,var(--ac),var(--am))}
 [data-theme=dark] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
 .leaflet-container{font-family:inherit}
-@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:44dvh 1fr}#wrap{order:-1}aside{border-right:0}#detail{left:8px;right:8px;top:8px;width:auto;max-height:80%}}
+@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:44dvh 1fr}.app.closed{grid-template-columns:1fr;grid-template-rows:1fr 0}#wrap{order:-1}aside{border-right:0}#detail{left:8px;right:8px;top:8px;width:auto;max-height:80%}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside>
 <div class="hd">
-<h1>Atlas Cuaca dan Musim</h1>
+<div class="top"><h1>Atlas Cuaca dan Musim</h1><div class="tb"><button id="bu" title="Ganti satuan suhu"></button><button id="bt" title="Ganti tema" aria-label="Ganti tema">🌓</button><button id="bp" title="Tutup panel" aria-label="Tutup panel">«</button></div></div>
 <p class="sub" id="cnt">Memuat data kota…</p>
-<div class="ctl">
 <input id="q" type="search" placeholder="Cari kota, mis. Jakarta" aria-label="Cari kota">
 <select id="cc" aria-label="Negara"><option value="">Semua negara</option></select>
-<span style="display:flex;gap:8px"><button id="bu" style="flex:1"></button><button id="bt" style="flex:1">Tema</button></span>
-</div>
 </div>
 <ul id="list"></ul>
 <button id="more" hidden>Muat lebih banyak</button>
 <div class="ft">Kota: GeoNames (CC BY 4.0) · Cuaca dan kualitas udara: Open-Meteo · Peta: OpenStreetMap</div>
 </aside>
-<div id="wrap"><div id="map"></div><section id="detail" hidden aria-live="polite"></section></div>
+<div id="wrap"><div id="map"></div><button id="open" aria-label="Buka panel">☰ Daftar kota</button><section id="detail" hidden aria-live="polite"></section></div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -121,12 +124,14 @@ $("#list").onclick=e=>{const l=e.target.closest("li[data-id]");if(l)openCity(+l.
 $("#list").onkeydown=e=>{if(e.key=="Enter"){const l=e.target.closest("li[data-id]");if(l)openCity(+l.dataset.id)}};
 $("#q").oninput=()=>{clearTimeout(tm);tm=setTimeout(search,200)};
 $("#cc").onchange=search;$("#more").onclick=more;
-const bu=()=>$("#bu").textContent="Satuan: °"+unit;
+const bu=()=>$("#bu").textContent="°"+unit;
 $("#bu").onclick=()=>{unit=unit=="C"?"F":"C";localStorage.u=unit;bu();refreshMap();if(last)render(...last,false)};
 function tiles(){if(!map._t)map._t=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map)}
 $("#bt").onclick=()=>{const d=document.documentElement.dataset.theme=="dark"?"light":"dark";document.documentElement.dataset.theme=d;localStorage.th=d;tiles()};
 document.documentElement.dataset.theme=localStorage.th||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
-map=L.map("map",{worldCopyJump:true,minZoom:2}).setView([20,10],2);layer=L.layerGroup().addTo(map);tiles();bu();
+map=L.map("map",{worldCopyJump:true,minZoom:2,zoomControl:false}).setView([20,10],2);L.control.zoom({position:"bottomright"}).addTo(map);layer=L.layerGroup().addTo(map);tiles();bu();
+function panel(o){$(".app").classList.toggle("closed",!o);localStorage.pn=o?1:0;setTimeout(()=>map.invalidateSize(),300)}
+$("#bp").onclick=()=>panel(false);$("#open").onclick=()=>panel(true);if(localStorage.pn=="0")panel(false);
 map.on("moveend",()=>{clearTimeout(mt);mt=setTimeout(()=>refreshMap().catch(()=>{}),400)});
 fetch("data/cities.json").then(r=>r.json()).then(d=>{
 C=d.c.map(r=>({id:r[0],n:r[1],cc:r[2],la:r[3],lo:r[4],p:r[5],tz:d.tz[r[6]],el:r[7],k:norm(r[1])+"|"+norm(r[8]||"")}));
